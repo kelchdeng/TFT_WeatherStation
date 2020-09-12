@@ -9,12 +9,17 @@
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 #include <ArduinoJson.h>
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
 // time
 #include <time.h>                       // time() ctime()
 #include <sys/time.h>                   // struct timeval
 #include <coredecls.h>                  // settimeofday_cb()
 //OTA
 #include <ArduinoOTA.h>
+//多线程
+//#include <Ticker.h>
 //TFT
 #include <Adafruit_GFX.h>    // Core graphics library Adafruit_GFX_Library
 #include <Adafruit_ST7735.h> // Hardware-specific library Adafruit_ST7735_and_ST7789_Library
@@ -50,7 +55,12 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 // Setup
 const int UPDATE_INTERVAL_SECS = 20 * 60; // Update every 20 minutes 每20分钟更新
 
-
+#define DHTPIN 13     // Digital pin connected to the DHT sensor 
+// Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
+// Pin 15 can work but DHT must be disconnected during program upload.
+// Uncomment the type of sensor in use:
+#define DHTTYPE    DHT11     // DHT 11
+DHT_Unified dht(DHTPIN, DHTTYPE);
 
 // https://wx.jdcloud.com/market/datas/26/10610 
 //const String OPEN_WEATHER_MAP_APP_ID = "";
@@ -118,21 +128,28 @@ void setReadyForWeatherUpdate();
 int numberOfOverlays = 1;
 int h = 0;
 
+// Ticker 调用间隔(秒)
+//const int blinkInterval = 1; 
+//Ticker ticker;
+
+const int INTERVAL_SECS =5;//tft 刷新时间
+long now_ms = 0;//当前毫秒数
+int iFlag=0;//显示标识，0大时间，1时钟，2当前天气，3小时预报
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("start..");
   
-  // OTA设置并启动
-  ArduinoOTA.setHostname("WeatherStation");
-  ArduinoOTA.setPassword("12345678");
-  ArduinoOTA.begin();
+  
   // Use this initializer if you're using a 1.8" TFT
   tft.initR(INITR_BLACKTAB);   // initialize a ST7735S chip, black tab
   tft.fillScreen(ST7735_BLACK);
   tft.setTextWrap(false);
   tft.setRotation(tft.getRotation()+1);
 //  tft.setCursor(5, 5);
+
+   // Initialize device.
+  dht.begin();
 
   WiFiConfig();
 
@@ -142,8 +159,14 @@ void setup() {
 
 
   updateData();
-
-
+  
+  //ticker.attach(blinkInterval, showTFT);
+  
+  // OTA设置并启动 wifi连接成功后执行
+  ArduinoOTA.setHostname("ESP8266-TFT-WeatherStation");
+  ArduinoOTA.setPassword("12345678");
+  ArduinoOTA.begin();
+  
 }
 
 void loop() {
@@ -157,18 +180,44 @@ void loop() {
     updateData();
   }
 
-  drawBigTime();
-  delay(5000);
+  if(millis()-now_ms>(1000L * INTERVAL_SECS)){
+     now_ms = millis();
+     showTFT();
+   }
+   
 
-  drawDateTime();
-  delay(5000);
+}
 
-  drawNowWeather();
-  delay(5000);
+void showTFT(){
+  switch (iFlag) {
+    case 0:    
+      drawBigTime();
+      iFlag++;
+      break;
+    case 1:    
+      drawDateTime();
+      iFlag++;
+      break;
+    case 2:    
+      drawNowWeather();
+      iFlag++;
+      break;
+    case 3:    
+      drawForecast();
+      iFlag=0;
+      break;
+  }
+  // drawBigTime();
+  // delay(5000);
+
+  // drawDateTime();
+  // delay(5000);
+
+  // drawNowWeather();
+  // delay(5000);
   
-  drawForecast();
-  delay(5000);
-
+  // drawForecast();
+  // delay(5000);
 }
 
 //绘制大字时间
@@ -181,13 +230,37 @@ void drawBigTime() {
   tft.fillScreen(ST7735_BLACK);
   //时间
   tft.drawBitmap(2,5,shijian,72,36,ST77XX_YELLOW);
-  tft.setCursor(2, 56);
+  tft.setCursor(2, 50);
   tft.setFont(NULL);
   tft.setTextSize(5);
   tft.setTextColor(ST7735_GREEN);
   sprintf_P(buff, PSTR("%02d:%02d"), timeInfo->tm_hour, timeInfo->tm_min);
   tft.println(String(buff));
-
+  
+  sensors_event_t event;
+  dht.temperature().getEvent(&event);
+   //字体16
+  tft.setFont(&Arimo_Regular_16);
+  tft.setCursor(1, 104);
+  tft.setTextSize(1);
+  if (isnan(event.temperature)) {
+    Serial.println(F("Error reading temperature!"));
+  }
+  else {
+    tft.setTextColor(ST7735_RED);
+    String temp = String(event.temperature, 1) + "C";
+    tft.println("NOW TEMP:"+temp);
+  }
+  // Get humidity event and print its value.
+  dht.humidity().getEvent(&event);
+  if (isnan(event.relative_humidity)) {
+    Serial.println(F("Error reading humidity!"));
+  }
+  else {
+    tft.setTextColor(ST7735_GREEN);
+    tft.println("NOW RH:"+String(event.relative_humidity)+"%");
+    
+  }
 
   
 }
@@ -221,7 +294,7 @@ void drawDateTime() {
   tft.setTextColor(ST7735_GREEN);
   
   tft.println(String(buff));
-  tft.drawBitmap(2,96,shizhong,72,36,ST77XX_YELLOW);
+  tft.drawBitmap(2,96,riqi,72,36,ST77XX_YELLOW);
   
 }
 
@@ -241,11 +314,15 @@ void drawNowWeather() {
  
   //字体16
   tft.setFont(&Arimo_Regular_16);
-  tft.setTextColor(ST7735_RED);
-  tft.println("HUM:"+String(currentWeather.hum)+"%");
   tft.setTextColor(ST7735_GREEN);
-  String temp = String(currentWeather.tmp, 1) + (IS_METRIC ? "°C" : "°F");
+  tft.println("RH:"+String(currentWeather.hum)+"%");
+  tft.setTextColor(ST7735_RED);
+  String temp = String(currentWeather.tmp, 1)+"C";
   tft.println("TEMP:"+temp);
+  // tft.setFont(&Meteocons_Regular_28);
+  // tft.println(char(42));
+  // //字体16
+  // tft.setFont(&Arimo_Regular_16);
   // tft.setTextSize(1);
   tft.setTextColor(ST77XX_YELLOW);
   String atmosphere = "AQI:" + currentWeather.aqi; 
@@ -288,7 +365,7 @@ void drawForecastDetails( int dayIndex) {
   String intHou = String(forecasts[dayIndex].intHou) + ":00 ";
   tft.print(intHou);
   //预报 温度
-  String temp = String(forecasts[dayIndex].tmp, 0) + " C";
+  String temp = String(forecasts[dayIndex].tmp, 0) + "C";
   tft.println(temp);
   
   
@@ -303,7 +380,7 @@ void updateData() {
   readyForWeatherUpdate = false;
   tft.fillScreen(ST7735_BLACK);
   testdrawtext("Update Weather Done...",ST7735_RED);
-
+  delay(1000);
 }
 
 
@@ -378,5 +455,6 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 void testdrawtext(String text, uint16_t color) {
   tft.setTextColor(color);
   //tft.setTextWrap(false);//关闭自动换行
+  tft.setCursor(2, 2);
   tft.println(text);
 }

@@ -241,33 +241,49 @@ void JDForecast::hourlyForecastParse(String nJson) {
 String JDForecast::getMeteoconIcon(int icon, int dn) {
   //天气代码查询 https://dev.heweather.com/docs/refer/condition
   String rtCode = ")";
-  //clear sky
-  if (icon == 100) {
+  //clear sky67 66
+  if (icon == 100 || icon==150) {
     rtCode = (dn == 1 ? "C" : "B");
+  }
+  if (icon == 104) {
+    rtCode = "3";
+  }
+  
+  //多云
+  if (icon == 154) {
+    rtCode = "E";
   }
   // few clouds
   if (icon == 103) {
-    rtCode = (dn == 1 ? "4" : "H");
+    rtCode = "4";
+  }
+  if (icon == 153) {
+    rtCode = "I";
   }
   // scattered clouds
-  if (icon == 102) {
+  if (icon == 102 ) {
     rtCode = (dn == 1 ? "5" : "N");
   }
   // broken clouds
-  if (icon == 101 || icon==104) {
+  if (icon == 101) {
     rtCode = (dn == 1 ? "%" : "Y");
   }
-  // shower rain
-  if (icon >= 300 && icon <= 304) {
-    rtCode = (dn == 1 ? "8" : "R");
-  }
   // rain
-  if (icon >= 305 && icon <= 399) {
+  if (icon == 305 || icon == 300 || icon == 301) {
     rtCode = (dn == 1 ? "7" : "Q");
   }
+  // shower rain
+  if (icon >= 306 && icon <= 399) {
+    rtCode = (dn == 1 ? "8" : "R");
+  }
+
+  if (icon == 302 || icon == 304) {
+    rtCode = (dn == 1 ? "6" : "O");
+  }
+  
   // thunderstorm
-  if (icon >= 202 && icon <= 209) {
-    rtCode = (dn == 1 ? "6" : "P");
+  if ( icon == 303) {
+    rtCode = (dn == 1 ? "&" : "P");
   }
   // snow
   if (icon >= 400 && icon <= 499) {

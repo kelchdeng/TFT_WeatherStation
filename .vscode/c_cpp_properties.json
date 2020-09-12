@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceRoot}",
+                "C:\\Users\\Administrator\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.6.3\\**",
+                "C:\\Users\\Administrator\\AppData\\Local\\Arduino15\\packages\\esp8266\\tools\\**",
+                "G:\\Program Files\\arduino-1.8.12\\hardware\\tools\\**",
+                "G:\\Program Files\\arduino-1.8.12\\libraries\\**",
+                "C:\\Users\\Administrator\\AppData\\Local\\Arduino15\\packages\\esp8266\\tools\\**",
+                "G:\\Program Files\\arduino-1.8.12\\hardware\\arduino\\avr\\**",
+                "G:\\Program Files\\arduino-1.8.12\\user_file\\libraries\\**"
+            ],
+            "forcedInclude": [],
+            "intelliSenseMode": "msvc-x64"
+        }
+    ],
+    "version": 4
+}
