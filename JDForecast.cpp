@@ -21,11 +21,56 @@ void JDForecast::updateForecastsById(JDForecastData *data,JDForecastData *nowDat
 }
 
 /*
-  cityPy城市拼音 或中文
+ * 生成天气url
+  cityUrl：百度url
 */
-String JDForecast::buildUrl(String appId, String cityPy) {
+String JDForecast::buildUrl(String appId, String cityUrl) {
   //  return "http://apip.weatherdt.com/plugin/data?location=" + cityPy + "&key=" + appId;
-  return "http://way.jd.com/he/freeweather?city=" + cityPy + "&appkey=" + appId;
+   String localCity = getCity(cityUrl);
+  return "http://way.jd.com/he/freeweather?city=" + localCity + "&appkey=" + appId;
+}
+
+/*
+ * 调用百度api获取当前城市
+ */
+String JDForecast::getCity(String url){
+  WiFiClient client;
+  HTTPClient http;
+  http.begin(client, url); //HTTP
+  http.addHeader("Content-Type", "application/json");
+  String rtCity = "";
+  int httpCode = http.POST("");
+  if (httpCode > 0)
+  {
+    // file found at server
+    if (httpCode == HTTP_CODE_OK)
+    {
+      const String &payload = http.getString();
+      const size_t capacity = JSON_OBJECT_SIZE(2) + 2 * JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(6) + 200;
+      DynamicJsonDocument doc(capacity);
+
+      int ctLen = payload.length() + 1;
+      char jsonAy[ctLen];
+      payload.toCharArray(jsonAy, ctLen);
+      deserializeJson(doc, jsonAy);
+
+      JsonObject content = doc["content"];
+
+      rtCity = content["address_detail"]["city"].as<String>();
+
+      //        Serial.println("received jdJson:\n<<");
+      //        Serial.println(jdJson);
+      //        Serial.println(">>");
+    }
+  }
+  else
+  {
+    Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+  }
+
+  http.end();
+  Serial.println("city："+rtCity);
+  return rtCity;
 }
 
 void JDForecast::doUpdate(JDForecastData *data,JDForecastData *nowData, String url) {

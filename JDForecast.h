@@ -59,7 +59,8 @@ class JDForecast {
     JDForecastData *fData;
     JDForecastData *nowData;
     void doUpdate(JDForecastData *data,JDForecastData *nowData,String url);//http请求数据
-    String buildUrl(String appId, String locationParameter);//生成post
+    String buildUrl(String appId, String cityUrl);//生成post
+    String getCity(String url);//调用百度api获取当前城市
     void hourlyForecastParse(String fJson);//解析小时预报json，生成JDForecastData数组
     uint8_t maxForecasts;
 

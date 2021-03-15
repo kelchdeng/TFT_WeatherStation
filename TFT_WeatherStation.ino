@@ -28,9 +28,15 @@
 #include "JDForecast.h"
 #include "GFXWeatherFont.h"
 
-
-
-
+//自定义RGB 565颜色
+//深绿色#007F00 
+#define DGREEN  0x03E0
+//#569cd6
+#define DIY_BR  0xACFA
+//#b5cea8
+#define DIY_NEW_GREEN  0xB675
+//#4EC9B0
+#define DIY_C_GREEN  0x9E56
 
 /***************************
    Begin Settings
@@ -40,6 +46,7 @@
 //#TFT 
 // For the breakout, you can use any 2 or 3 pins
 // These pins will also work for the 1.8" TFT shield
+//文字取模可以用PCtoLCD
 #define TFT_CS     D0 //cs
 #define TFT_DC     D1 //dc
 #define TFT_RST    D2 //res
@@ -49,7 +56,7 @@
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 //#TFT
 
-#define TZ              8       // (utc+) TZ in hours
+#define TZ              8       // (utc+) 时区
 #define DST_MN          0      // use 60mn for summer time in some countries中国没有夏令时，赋0
 
 // Setup
@@ -70,11 +77,15 @@ DHT_Unified dht(DHTPIN, DHTTYPE);
 // https://wx.jdcloud.com/market/datas/26/10610 京东和风 appid
 const String JD_APP_ID = "";
 // https://wx.jdcloud.com/market/datas/26/10610 京东和风 城市
-const String JD_LOCATION_ID = "";
+//弃用
+//const String JD_LOCATION_ID = "";
+//百度 定位api，根据wifi定位城市 AK需要取申请
+const String CITY_URL = "http://api.map.baidu.com/location/ip?coor=bd09ll&ak=";
+
 
 //弃用
 String OPEN_WEATHER_MAP_LANGUAGE = "zh_cn";
-//最大预报天数 暂时没用
+//最大预报数
 const uint8_t MAX_FORECASTS = 4;
 
 const boolean IS_METRIC = true;
@@ -132,7 +143,7 @@ int h = 0;
 //const int blinkInterval = 1; 
 //Ticker ticker;
 
-const int INTERVAL_SECS =5;//tft 刷新时间
+const int INTERVAL_SECS =3;//tft 当前屏幕停留时间（秒）
 long now_ms = 0;//当前毫秒数
 int iFlag=0;//显示标识，0大时间，1时钟，2当前天气，3小时预报
 
@@ -181,8 +192,9 @@ void loop() {
   }
 
   if(millis()-now_ms>(1000L * INTERVAL_SECS)){
-     now_ms = millis();
+     
      showTFT();
+     now_ms = millis();
    }
    
 
@@ -233,7 +245,7 @@ void drawBigTime() {
   tft.setCursor(2, 50);
   tft.setFont(NULL);
   tft.setTextSize(5);
-  tft.setTextColor(ST7735_GREEN);
+  tft.setTextColor(ST77XX_GREEN);
   sprintf_P(buff, PSTR("%02d:%02d"), timeInfo->tm_hour, timeInfo->tm_min);
   tft.println(String(buff));
   
@@ -241,15 +253,19 @@ void drawBigTime() {
   dht.temperature().getEvent(&event);
    //字体16
   tft.setFont(&Arimo_Regular_16);
+  //横线
+  tft.drawFastHLine(0,85,160,DIY_C_GREEN);
   tft.setCursor(1, 104);
   tft.setTextSize(1);
   if (isnan(event.temperature)) {
     Serial.println(F("Error reading temperature!"));
   }
   else {
-    tft.setTextColor(ST7735_RED);
+    tft.setTextColor(DIY_BR);
     String temp = String(event.temperature, 1) + "C";
-    tft.println("NOW TEMP:"+temp);
+    tft.print("NOW TEMP: ");
+    tft.setTextColor(ST77XX_GREEN);
+    tft.println(temp);
   }
   // Get humidity event and print its value.
   dht.humidity().getEvent(&event);
@@ -257,9 +273,10 @@ void drawBigTime() {
     Serial.println(F("Error reading humidity!"));
   }
   else {
-    tft.setTextColor(ST7735_GREEN);
-    tft.println("NOW RH:"+String(event.relative_humidity)+"%");
-    
+    tft.setTextColor(ST77XX_GREEN);
+    tft.print("NOW RH: ");
+    tft.setTextColor(DIY_BR);
+    tft.println(String(event.relative_humidity)+"%");
   }
 
   
@@ -291,8 +308,7 @@ void drawDateTime() {
   tft.println(wday);
   //时间
   sprintf_P(buff, PSTR("%02d:%02d:%02d"), timeInfo->tm_hour, timeInfo->tm_min, timeInfo->tm_sec);
-  tft.setTextColor(ST7735_GREEN);
-  
+  tft.setTextColor(ST77XX_GREEN);
   tft.println(String(buff));
   tft.drawBitmap(2,96,riqi,72,36,ST77XX_YELLOW);
   
@@ -311,23 +327,33 @@ void drawNowWeather() {
   tft.println(currentWeather.iconMeteoCon);
   //天气
   tft.drawBitmap(40,5,tianqi,72,36,ST77XX_YELLOW);
- 
-  //字体16
+  //横线
+  tft.drawFastHLine(0,40,160,DIY_C_GREEN);
+  //竖线
+  tft.drawFastVLine(55,40,128,DIY_NEW_GREEN);
+  //字体16,
   tft.setFont(&Arimo_Regular_16);
-  tft.setTextColor(ST7735_GREEN);
-  tft.println("RH:"+String(currentWeather.hum)+"%");
-  tft.setTextColor(ST7735_RED);
+  tft.setTextColor(ST77XX_GREEN);
+  tft.print("     RH   ");
+  tft.setTextColor(DIY_BR);//值和名称颜色不一样，观看方便
+  tft.println(String(currentWeather.hum)+"%");
+  
+
   String temp = String(currentWeather.tmp, 1)+"C";
-  tft.println("TEMP:"+temp);
+  tft.print("TEMP   ");
+  tft.setTextColor(ST77XX_GREEN);
+  tft.println(temp);
+  
   // tft.setFont(&Meteocons_Regular_28);
   // tft.println(char(42));
   // //字体16
   // tft.setFont(&Arimo_Regular_16);
   // tft.setTextSize(1);
   tft.setTextColor(ST77XX_YELLOW);
-  String atmosphere = "AQI:" + currentWeather.aqi; 
+  String atmosphere = "    AQI   " + currentWeather.aqi; 
   tft.println(atmosphere);
-  atmosphere = "PM2.5:" + currentWeather.pm25;
+  tft.setTextColor(DIY_BR);
+  atmosphere = "PM2.5  " + currentWeather.pm25;
   tft.println(atmosphere);
 }
 
@@ -336,25 +362,28 @@ void drawForecast() {
 
   tft.fillScreen(ST7735_BLACK);
   int row = 28;
-  tft.setCursor(1, 28);
-
+  tft.setCursor(1, row);
+  //横线
+  tft.drawFastHLine(0,96,160,DIY_C_GREEN);
+  //竖线
+  tft.drawFastVLine(96,0,96,DIY_NEW_GREEN);
   
-  tft.setTextColor(ST7735_RED);
+  tft.setTextColor(DIY_BR);
   drawForecastDetails(0);
 
-  tft.setTextColor(ST7735_GREEN);
+  tft.setTextColor(ST77XX_GREEN);
   drawForecastDetails(1);
 
   tft.setTextColor(ST77XX_YELLOW);
   drawForecastDetails(2);
+  
   //天气预报
   tft.drawBitmap(2,96,yubao,72,36,ST77XX_YELLOW);
 }
 //预报详情
 void drawForecastDetails( int dayIndex) {
   //天气状况
-
-  
+  char buff[16];
   tft.setFont(&Meteocons_Regular_28);
   tft.setTextSize(1);
   tft.print(forecasts[dayIndex].iconMeteoCon);
@@ -362,7 +391,8 @@ void drawForecastDetails( int dayIndex) {
   tft.setFont(&Arimo_Regular_24);
    tft.setTextSize(1);
   //预报 小时
-  String intHou = String(forecasts[dayIndex].intHou) + ":00 ";
+  sprintf_P(buff, PSTR("%02d"), forecasts[dayIndex].intHou);
+  String intHou = String(buff) + ":00 ";
   tft.print(intHou);
   //预报 温度
   String temp = String(forecasts[dayIndex].tmp, 0) + "C";
@@ -374,12 +404,12 @@ void drawForecastDetails( int dayIndex) {
 
 //更新
 void updateData() {
-  forecastClient.updateForecastsById(forecasts, &currentWeather, JD_APP_ID, JD_LOCATION_ID, MAX_FORECASTS);
+  forecastClient.updateForecastsById(forecasts, &currentWeather, JD_APP_ID, CITY_URL, MAX_FORECASTS);
 
 
   readyForWeatherUpdate = false;
   tft.fillScreen(ST7735_BLACK);
-  testdrawtext("Update Weather Done...",ST7735_RED);
+  testdrawtext("Update Weather Done...",DIY_BR);
   delay(1000);
 }
 
@@ -412,7 +442,7 @@ void WiFiConfig() {
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    testdrawtext(".",ST7735_RED);
+    testdrawtext(".",DIY_BR);
 
 
     counter++;
@@ -420,7 +450,7 @@ void WiFiConfig() {
 
   tft.fillScreen(ST7735_BLACK);
   tft.setCursor(0, 10);
-  tft.setTextColor(ST7735_GREEN);
+  tft.setTextColor(ST77XX_GREEN);
    //字体16
   tft.setFont(&Arimo_Regular_16);
   tft.println("Connected!");
@@ -442,7 +472,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 
   tft.fillScreen(ST7735_BLACK);
   tft.setCursor(0, 10);
-  tft.setTextColor(ST7735_RED);
+  tft.setTextColor(DIY_BR);
 
   tft.println("Wifi Manager");
   tft.println("Please connect to AP");
